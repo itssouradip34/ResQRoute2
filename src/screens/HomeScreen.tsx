@@ -28,6 +28,7 @@ import { useSettings } from '../context/SettingsContext';
 import { SituationType } from '../types';
 import { NATIONAL_HELPLINES } from '../data/indiaEmergencyServices';
 import { EmergencyActiveBanner } from '../components/EmergencyActiveBanner';
+import { TEST_MODE, TEST_HELPLINE_OVERRIDE, TEST_PHONE_NUMBERS } from '../config/testMode';
 
 interface HomeScreenProps {
   onNavigateToServices: () => void;
@@ -110,7 +111,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   ];
 
   const handleCallHelpline = (code: string) => {
-    Linking.openURL(`tel:${code}`).catch(() => {});
+    const target = TEST_MODE
+      ? TEST_HELPLINE_OVERRIDE[code] || TEST_PHONE_NUMBERS[0]
+      : code;
+    Linking.openURL(`tel:${target}`).catch(() => {});
   };
 
   return (
