@@ -16,12 +16,16 @@ import {
   ExternalLink,
   MessageSquareShare,
   Plus,
+  Send,
   Share2,
   Trash2,
   UserCheck,
   Users,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as Linking from 'expo-linking';
+import * as SMS from 'expo-sms';
+import { TrustedContact } from '../types';
 import { useEmergency } from '../context/EmergencyContext';
 import { useSettings } from '../context/SettingsContext';
 import { OfflineFallbackService } from '../services/emergency/OfflineFallbackService';
@@ -81,6 +85,69 @@ export const TrustedContactsScreen: React.FC = () => {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const buildLiveLocationMessage = () =>
+    `${smsPreviewText}\n\nLive tracking: ${trackingLink}`;
+
+  // Opens a WhatsApp chat with this contact, prefilled with the live
+  // location message. The user still has to tap "Send" inside WhatsApp —
+  // wa.me deep links can't silently dispatch a message on their own, and
+  // since each one switches away from the app, this is per-contact rather
+  // than a single "send to all" action.
+  const handleShareViaWhatsApp = async (contact: TrustedContact) => {
+    const url = OfflineFallbackService.getWhatsAppShareURL(
+      contact.phone_number,
+      buildLiveLocationMessage()
+    );
+    try {
+      await Linking.openURL(url);
+    } catch (err) {
+      Alert.alert(
+        'Could not open WhatsApp',
+        'Make sure WhatsApp is installed on this device, or use the SMS option instead.'
+      );
+    }
+  };
+
+  // Sends live location to one contact via SMS right now, independent of
+  // an active SOS.
+  const handleSendSMSNow = async (contact: TrustedContact) => {
+    const isAvailable = await SMS.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('SMS Unavailable', 'This device cannot send SMS messages.');
+      return;
+    }
+    const { success, error } = await OfflineFallbackService.sendManualLocationSMS(
+      contact,
+      userLocation
+    );
+    if (!success) {
+      Alert.alert('Could not send SMS', error || 'Please try again.');
+    }
+  };
+
+  // Broadcasts live location via SMS to every trusted contact in one go.
+  // (A true one-tap WhatsApp broadcast isn't possible with deep links —
+  // WhatsApp requires the user to confirm send in-app each time.)
+  const handleBroadcastSMSToAll = async () => {
+    if (trustedContacts.length === 0) {
+      Alert.alert('No Contacts', 'Add a trusted contact first.');
+      return;
+    }
+    const isAvailable = await SMS.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('SMS Unavailable', 'This device cannot send SMS messages.');
+      return;
+    }
+    const { success, error } = await OfflineFallbackService.sendEmergencySMS(
+      trustedContacts,
+      { situation_type: 'other', urgency_level: 'moderate', trigger_type: 'manual' },
+      userLocation
+    );
+    if (!success) {
+      Alert.alert('Could not send SMS', error || 'Please try again.');
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -109,16 +176,28 @@ export const TrustedContactsScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>
           {settings.language === 'hi' ? 'सहेजे गए संपर्क' : 'Configured Contacts'}
         </Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          activeOpacity={0.75}
-          onPress={() => setIsAddModalOpen(true)}
-        >
-          <Plus size={16} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>
-            {settings.language === 'hi' ? 'नया जोड़ें' : 'Add Contact'}
-          </Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.broadcastBtn}
+            activeOpacity={0.75}
+            onPress={handleBroadcastSMSToAll}
+          >
+            <Share2 size={16} color="#FFFFFF" />
+            <Text style={styles.addBtnText}>
+              {settings.language === 'hi' ? 'लोकेशन भेजें' : 'Share Location'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addBtn}
+            activeOpacity={0.75}
+            onPress={() => setIsAddModalOpen(true)}
+          >
+            <Plus size={16} color="#FFFFFF" />
+            <Text style={styles.addBtnText}>
+              {settings.language === 'hi' ? 'नया जोड़ें' : 'Add Contact'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.contactsList}>
@@ -143,12 +222,26 @@ export const TrustedContactsScreen: React.FC = () => {
               <Text style={styles.contactRelation}>{contact.relation}</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.deleteBtn}
-              onPress={() => removeTrustedContact(contact.id)}
-            >
-              <Trash2 size={18} color="#FF6B6B" />
-            </TouchableOpacity>
+            <View style={styles.contactActions}>
+              <TouchableOpacity
+                style={styles.contactActionBtn}
+                onPress={() => handleShareViaWhatsApp(contact)}
+              >
+                <Send size={16} color="#3FB950" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.contactActionBtn}
+                onPress={() => handleSendSMSNow(contact)}
+              >
+                <MessageSquareShare size={16} color="#58A6FF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.contactActionBtn}
+                onPress={() => removeTrustedContact(contact.id)}
+              >
+                <Trash2 size={16} color="#FF6B6B" />
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
 
@@ -348,6 +441,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  broadcastBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1F6FEB',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  contactActionBtn: {
+    padding: 8,
+  },
   contactsList: {
     paddingHorizontal: 16,
     gap: 10,
@@ -412,9 +522,6 @@ const styles = StyleSheet.create({
     color: '#8B949E',
     fontSize: 11,
     marginTop: 1,
-  },
-  deleteBtn: {
-    padding: 8,
   },
   emptyContacts: {
     padding: 20,
