@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "ResQRoute-A",
+    "slug": "resqroute-ai",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0D1117"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "ResQRoute-A needs your location to detect emergencies and find nearest hospitals, police, ambulances, and towing services.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "ResQRoute-A uses background location to monitor speed-drop and provide live tracking to trusted contacts during an active SOS.",
+        "NSMotionUsageDescription": "ResQRoute-A analyzes gyroscope and accelerometer data to automatically detect potential vehicle accidents or falls."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0D1117",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "HIGH_SAMPLING_RATE_SENSORS",
+        "VIBRATE",
+        "SEND_SMS"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
