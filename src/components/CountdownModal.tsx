@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   Modal,
   StyleSheet,
@@ -12,7 +12,6 @@ import Svg, { Circle } from 'react-native-svg';
 import { AlertTriangle, CheckCircle, ShieldAlert, Zap } from 'lucide-react-native';
 import { useEmergency } from '../context/EmergencyContext';
 import { useSettings } from '../context/SettingsContext';
-import { AudioAlertPlayer } from './AudioAlertPlayer';
 
 const { width } = Dimensions.get('window');
 const RING_SIZE = Math.min(width * 0.65, 240);
@@ -39,17 +38,6 @@ export const CountdownModal: React.FC = () => {
   const confidencePercent = Math.round(
     (currentIncident?.confidence_score || 0.85) * 100
   );
-
-  useEffect(() => {
-    if (isVisible && settings.enableAudioAlarm) {
-      AudioAlertPlayer.startAlarm();
-    } else {
-      AudioAlertPlayer.stopAlarm();
-    }
-    return () => {
-      AudioAlertPlayer.stopAlarm();
-    };
-  }, [isVisible, settings.enableAudioAlarm]);
 
   if (!isVisible) return null;
 
