@@ -8,7 +8,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "@supabase/supabase-js": "^2.112.3",
     "expo": "~57.0.15",
-    "expo-av": "^16.0.8",
+    "expo-audio": "~57.0.4",
     "expo-clipboard": "^57.0.1",
     "expo-haptics": "~57.0.1",
     "expo-linking": "~57.0.7",

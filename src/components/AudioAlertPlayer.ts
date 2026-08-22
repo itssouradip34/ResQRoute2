@@ -1,8 +1,8 @@
-import { Audio } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 import { Platform } from 'react-native';
 
 class AudioAlertPlayerClass {
-  private soundObject: Audio.Sound | null = null;
+  private soundObject: any = null;
   private isPlaying = false;
   private webAudioCtx: any = null;
   private webOscillator: any = null;
@@ -26,10 +26,10 @@ class AudioAlertPlayerClass {
     }
 
     try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'duckOthers',
       });
 
       // Synthetic high-frequency tone burst

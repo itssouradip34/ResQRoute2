@@ -85,6 +85,47 @@ class OfflineFallbackServiceClass {
   }
 
   /**
+   * Normalize a stored contact number into digits-only form (with country code)
+   * suitable for wa.me deep links. Assumes India (+91) when no country code
+   * is present and the local number is 10 digits.
+   */
+  public normalizePhoneForWhatsApp(rawPhone: string): string {
+    const digits = rawPhone.replace(/[^\d]/g, '');
+    if (rawPhone.trim().startsWith('+')) return digits;
+    if (digits.length === 10) return `91${digits}`;
+    return digits;
+  }
+
+  /**
+   * Build a wa.me deep link that opens a WhatsApp chat with the contact,
+   * prefilled with the live-location message. wa.me is a universal https
+   * link so it needs no extra native permissions/queries to open.
+   */
+  public getWhatsAppShareURL(rawPhone: string, message: string): string {
+    const digits = this.normalizePhoneForWhatsApp(rawPhone);
+    return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  }
+
+  /**
+   * Send an on-demand SMS with live location to a single contact,
+   * independent of an active incident (e.g. a manual "notify now" tap).
+   */
+  public async sendManualLocationSMS(
+    contact: TrustedContact,
+    location: UserLocation
+  ): Promise<{ success: boolean; error?: string }> {
+    return this.sendEmergencySMS(
+      [contact],
+      {
+        situation_type: 'other',
+        urgency_level: 'moderate',
+        trigger_type: 'manual',
+      },
+      location
+    );
+  }
+
+  /**
    * Dispatch SMS via native device SMS provider (expo-sms)
    */
   public async sendEmergencySMS(
