@@ -9,6 +9,12 @@ import {
   UserLocation,
 } from '../../types';
 import { INDIA_EMERGENCY_SERVICES } from '../../data/indiaEmergencyServices';
+import {
+  TEST_MODE,
+  TEST_PHONE_NUMBERS,
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_IDS,
+} from '../../config/testMode';
 
 const OFFLINE_SYNC_QUEUE_KEY = '@resqroute_offline_sync_queue';
 const OFFLINE_REGIONAL_BUNDLE_KEY = '@resqroute_offline_bundle_';
@@ -68,9 +74,10 @@ class OfflineFallbackServiceClass {
     });
 
     const isAuto = incident.trigger_type === 'auto_sensor';
+    const testPrefix = TEST_MODE ? '[TEST MODE — NOT A REAL EMERGENCY] ' : '';
     const alertHeader = isAuto
-      ? '🚨 [ResQRoute-A AUTO SOS ALERT]'
-      : '🚨 [ResQRoute-A EMERGENCY SOS ALERT]';
+      ? `${testPrefix}🚨 [ResQRoute-A AUTO SOS ALERT]`
+      : `${testPrefix}🚨 [ResQRoute-A EMERGENCY SOS ALERT]`;
 
     return (
       `${alertHeader}\n` +
@@ -97,12 +104,26 @@ class OfflineFallbackServiceClass {
   }
 
   /**
+   * TEST MODE ONLY: deterministically maps any real contact number to one
+   * of your own test numbers, so the same contact always lands on the same
+   * test number. Never call real emergency contacts while this is active.
+   */
+  private getTestSafeNumber(rawPhone: string): string {
+    let hash = 0;
+    for (let i = 0; i < rawPhone.length; i++) {
+      hash = (hash * 31 + rawPhone.charCodeAt(i)) % TEST_PHONE_NUMBERS.length;
+    }
+    return TEST_PHONE_NUMBERS[Math.abs(hash) % TEST_PHONE_NUMBERS.length];
+  }
+
+  /**
    * Build a wa.me deep link that opens a WhatsApp chat with the contact,
    * prefilled with the live-location message. wa.me is a universal https
    * link so it needs no extra native permissions/queries to open.
    */
   public getWhatsAppShareURL(rawPhone: string, message: string): string {
-    const digits = this.normalizePhoneForWhatsApp(rawPhone);
+    const targetPhone = TEST_MODE ? this.getTestSafeNumber(rawPhone) : rawPhone;
+    const digits = this.normalizePhoneForWhatsApp(targetPhone);
     return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
   }
 
@@ -133,9 +154,14 @@ class OfflineFallbackServiceClass {
     incident: Partial<IncidentReport>,
     location: UserLocation
   ): Promise<{ success: boolean; error?: string }> {
-    const recipients = contacts
-      .map((c) => c.phone_number.trim())
-      .filter((p) => p.length > 0);
+    const recipients = Array.from(
+      new Set(
+        contacts
+          .map((c) => c.phone_number.trim())
+          .filter((p) => p.length > 0)
+          .map((p) => (TEST_MODE ? this.getTestSafeNumber(p) : p))
+      )
+    );
 
     if (recipients.length === 0) {
       return { success: false, error: 'No trusted contacts phone numbers configured' };
@@ -156,6 +182,34 @@ class OfflineFallbackServiceClass {
       console.error('Error sending emergency SMS:', err);
       return { success: false, error: err?.message || 'Failed to send SMS' };
     }
+  }
+
+  /**
+   * Sends an automatic Telegram alert to all test contacts — no tap required,
+   * completely free, and fires immediately on SOS trigger.
+   */
+  public async sendAutoTelegramAlert(
+    incident: Partial<IncidentReport>,
+    location: UserLocation
+  ): Promise<{ success: boolean }> {
+    const message = this.generateEmergencySMSBody(incident, location);
+    const chatIds = Object.values(TELEGRAM_CHAT_IDS);
+
+    const results = await Promise.all(
+      chatIds.map(async (chatId) => {
+        try {
+          const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(
+            message
+          )}`;
+          const res = await fetch(url);
+          return res.ok;
+        } catch {
+          return false;
+        }
+      })
+    );
+
+    return { success: results.every(Boolean) };
   }
 
   /**
