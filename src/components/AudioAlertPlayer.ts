@@ -1,8 +1,10 @@
-import { setAudioModeAsync } from 'expo-audio';
+import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Platform } from 'react-native';
 
+const SIREN_ASSET = require('../../assets/sounds/siren.wav');
+
 class AudioAlertPlayerClass {
-  private soundObject: any = null;
+  private player: AudioPlayer | null = null;
   private isPlaying = false;
   private webAudioCtx: any = null;
   private webOscillator: any = null;
@@ -32,8 +34,13 @@ class AudioAlertPlayerClass {
         interruptionMode: 'duckOthers',
       });
 
-      // Synthetic high-frequency tone burst
-      // If no local mp3 asset, fallback safely
+      if (!this.player) {
+        this.player = createAudioPlayer(SIREN_ASSET);
+      }
+      this.player.loop = true;
+      this.player.volume = 1.0;
+      this.player.seekTo(0);
+      this.player.play();
     } catch (err) {
       console.warn('Native audio alert init failed:', err);
     }
@@ -75,10 +82,13 @@ class AudioAlertPlayerClass {
 
   public stopAlarm() {
     this.isPlaying = false;
-    if (this.soundObject) {
-      this.soundObject.stopAsync().catch(() => {});
-      this.soundObject.unloadAsync().catch(() => {});
-      this.soundObject = null;
+    if (this.player) {
+      try {
+        this.player.pause();
+        this.player.seekTo(0);
+      } catch {
+        // Ignore stop errors (e.g. player already released)
+      }
     }
     if (this.webAudioCtx) {
       try {

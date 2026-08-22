@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Platform,
   SafeAreaView,
@@ -24,6 +24,7 @@ import { EmergencyProvider, useEmergency } from './src/context/EmergencyContext'
 import { Header } from './src/components/Header';
 import { CountdownModal } from './src/components/CountdownModal';
 import { ManualSOSButton } from './src/components/ManualSOSButton';
+import { AudioAlertPlayer } from './src/components/AudioAlertPlayer';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ServicesListScreen } from './src/screens/ServicesListScreen';
 import { AIChatTriageScreen } from './src/screens/AIChatTriageScreen';
@@ -40,6 +41,25 @@ const MainApp: React.FC = () => {
     undefined
   );
   const { settings } = useSettings();
+  const { status } = useEmergency();
+
+  // Siren plays for both the pre-confirmation countdown (auto-detected
+  // incidents) and once an incident is fully active (manual SOS included),
+  // and stops as soon as it's cancelled/resolved/back to idle.
+  useEffect(() => {
+    const shouldSound =
+      (status === 'confirming' || status === 'active') && settings.enableAudioAlarm;
+
+    if (shouldSound) {
+      AudioAlertPlayer.startAlarm();
+    } else {
+      AudioAlertPlayer.stopAlarm();
+    }
+
+    return () => {
+      AudioAlertPlayer.stopAlarm();
+    };
+  }, [status, settings.enableAudioAlarm]);
 
   const handleNavigateToChat = (situation?: SituationType) => {
     setInitialChatSituation(situation);
