@@ -9,7 +9,12 @@ import {
   UserLocation,
 } from '../../types';
 import { INDIA_EMERGENCY_SERVICES } from '../../data/indiaEmergencyServices';
-import { TEST_MODE, TEST_PHONE_NUMBERS } from '../../config/testMode';
+import {
+  TEST_MODE,
+  TEST_PHONE_NUMBERS,
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_IDS,
+} from '../../config/testMode';
 
 const OFFLINE_SYNC_QUEUE_KEY = '@resqroute_offline_sync_queue';
 const OFFLINE_REGIONAL_BUNDLE_KEY = '@resqroute_offline_bundle_';
@@ -177,6 +182,34 @@ class OfflineFallbackServiceClass {
       console.error('Error sending emergency SMS:', err);
       return { success: false, error: err?.message || 'Failed to send SMS' };
     }
+  }
+
+  /**
+   * Sends an automatic Telegram alert to all test contacts — no tap required,
+   * completely free, and fires immediately on SOS trigger.
+   */
+  public async sendAutoTelegramAlert(
+    incident: Partial<IncidentReport>,
+    location: UserLocation
+  ): Promise<{ success: boolean }> {
+    const message = this.generateEmergencySMSBody(incident, location);
+    const chatIds = Object.values(TELEGRAM_CHAT_IDS);
+
+    const results = await Promise.all(
+      chatIds.map(async (chatId) => {
+        try {
+          const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(
+            message
+          )}`;
+          const res = await fetch(url);
+          return res.ok;
+        } catch {
+          return false;
+        }
+      })
+    );
+
+    return { success: results.every(Boolean) };
   }
 
   /**

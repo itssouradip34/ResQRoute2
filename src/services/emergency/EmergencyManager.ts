@@ -329,6 +329,21 @@ class EmergencyManagerClass {
       );
     }
 
+    // Automatic Telegram alert — fires with zero taps required, unlike
+    // the SMS composer above which still needs manual confirmation.
+    const telegramResult = await OfflineFallbackService.sendAutoTelegramAlert(
+      this.currentIncident,
+      location
+    );
+
+    if (telegramResult.success) {
+      this.addTimelineEvent(
+        this.currentIncident.id,
+        'contact_notified',
+        'Automatic Telegram alert delivered to trusted contacts (no confirmation needed).'
+      );
+    }
+
     // 3. Sync to Supabase if connected
     SupabaseDataService.createIncident(this.currentIncident);
     if (this.currentIncident.sensor_snapshot) {

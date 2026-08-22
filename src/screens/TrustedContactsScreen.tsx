@@ -21,6 +21,7 @@ import {
   Trash2,
   UserCheck,
   Users,
+  Zap,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
@@ -46,6 +47,7 @@ export const TrustedContactsScreen: React.FC = () => {
   const [relationInput, setRelationInput] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [smsPreviewVisible, setSmsPreviewVisible] = useState(false);
+  const [isSendingTestAlert, setIsSendingTestAlert] = useState(false);
 
   const trackingLink = `https://resqroute.app/track/${
     currentIncident?.id || 'live_session_demo'
@@ -148,6 +150,29 @@ export const TrustedContactsScreen: React.FC = () => {
     }
   };
 
+  // TEMPORARY TEST BUTTON: sends an automatic Telegram alert to your 3
+  // test numbers via OfflineFallbackService.sendAutoTelegramAlert — no
+  // tap needed on the receiving end, unlike SMS/WhatsApp above. Remove
+  // this button once the auto-alert is wired into the real SOS flow.
+  const handleTestAutoAlert = async () => {
+    setIsSendingTestAlert(true);
+    try {
+      const { success } = await OfflineFallbackService.sendAutoTelegramAlert(
+        { situation_type: 'accident', urgency_level: 'critical', trigger_type: 'manual' },
+        userLocation
+      );
+      if (success) {
+        Alert.alert('Sent!', 'Check your 3 test phones on Telegram.');
+      } else {
+        Alert.alert('Failed', 'One or more Telegram messages failed to send.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Something went wrong.');
+    } finally {
+      setIsSendingTestAlert(false);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -170,6 +195,19 @@ export const TrustedContactsScreen: React.FC = () => {
           </Text>
         </View>
       </View>
+
+      {/* TEMPORARY TEST BUTTON */}
+      <TouchableOpacity
+        style={styles.testAlertBtn}
+        activeOpacity={0.8}
+        onPress={handleTestAutoAlert}
+        disabled={isSendingTestAlert}
+      >
+        <Zap size={18} color="#FFFFFF" />
+        <Text style={styles.testAlertBtnText}>
+          {isSendingTestAlert ? 'Sending...' : 'Test Auto-Alert (Telegram)'}
+        </Text>
+      </TouchableOpacity>
 
       {/* Contacts List */}
       <View style={styles.sectionHeader}>
@@ -414,6 +452,22 @@ const styles = StyleSheet.create({
     color: '#8B949E',
     fontSize: 12,
     marginTop: 2,
+  },
+  testAlertBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8957E5',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  testAlertBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   sectionHeader: {
     flexDirection: 'row',
