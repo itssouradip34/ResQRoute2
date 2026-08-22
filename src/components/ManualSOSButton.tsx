@@ -32,7 +32,7 @@ export const ManualSOSButton: React.FC = () => {
 const styles = StyleSheet.create({
   floatingContainer: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 96,
     left: 20,
     right: 20,
     alignItems: 'center',

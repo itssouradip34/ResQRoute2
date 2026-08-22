@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Platform,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -170,7 +171,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#161B22',
     borderTopWidth: 1,
     borderTopColor: '#21262D',
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 26 : 22,
     paddingHorizontal: 6,
     justifyContent: 'space-around',
     alignItems: 'center',
