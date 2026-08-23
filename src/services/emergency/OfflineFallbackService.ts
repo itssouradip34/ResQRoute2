@@ -9,6 +9,7 @@ import {
   UserLocation,
 } from '../../types';
 import { INDIA_EMERGENCY_SERVICES } from '../../data/indiaEmergencyServices';
+import { supabase } from '../supabase/supabaseClient';
 import {
   TEST_MODE,
   TEST_PHONE_NUMBERS,
@@ -210,6 +211,46 @@ class OfflineFallbackServiceClass {
     );
 
     return { success: results.every(Boolean) };
+  }
+
+  /**
+   * Places an automatic voice call (via the send-emergency-call Supabase
+   * Edge Function → Exotel) to trusted contacts. Unlike SMS/WhatsApp/Telegram,
+   * this actually rings the phone and speaks the alert aloud — the strongest
+   * option for someone asleep or with notifications muted.
+   *
+   * Recipient numbers go through the same TEST_MODE mapping as WhatsApp/SMS
+   * so this never rings a real contact while testing.
+   */
+  public async sendAutoVoiceCallAlert(
+    contacts: TrustedContact[]
+  ): Promise<{ success: boolean; error?: string }> {
+    const recipients = Array.from(
+      new Set(
+        contacts
+          .map((c) => c.phone_number.trim())
+          .filter((p) => p.length > 0)
+          .map((p) => (TEST_MODE ? this.getTestSafeNumber(p) : p))
+      )
+    );
+
+    if (recipients.length === 0) {
+      return { success: false, error: 'No trusted contacts phone numbers configured' };
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-emergency-call', {
+        body: { recipients },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: Boolean(data?.success), error: data?.success ? undefined : 'One or more calls failed' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to place emergency call' };
+    }
   }
 
   /**
