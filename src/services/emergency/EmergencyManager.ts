@@ -344,6 +344,20 @@ class EmergencyManagerClass {
       );
     }
 
+    // Automatic voice call — rings the contact's phone and speaks the alert.
+    // Strongest option for someone asleep or with notifications muted.
+    const callResult = await OfflineFallbackService.sendAutoVoiceCallAlert(
+      this.trustedContacts
+    );
+
+    if (callResult.success) {
+      this.addTimelineEvent(
+        this.currentIncident.id,
+        'contact_notified',
+        'Automatic emergency voice call placed to trusted contacts.'
+      );
+    }
+
     // 3. Sync to Supabase if connected
     SupabaseDataService.createIncident(this.currentIncident);
     if (this.currentIncident.sensor_snapshot) {

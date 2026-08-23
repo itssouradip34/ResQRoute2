@@ -22,6 +22,7 @@ import {
   UserCheck,
   Users,
   Zap,
+  Phone,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
@@ -48,6 +49,7 @@ export const TrustedContactsScreen: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [smsPreviewVisible, setSmsPreviewVisible] = useState(false);
   const [isSendingTestAlert, setIsSendingTestAlert] = useState(false);
+  const [isSendingTestCall, setIsSendingTestCall] = useState(false);
 
   const trackingLink = `https://resqroute.app/track/${
     currentIncident?.id || 'live_session_demo'
@@ -173,6 +175,27 @@ export const TrustedContactsScreen: React.FC = () => {
     }
   };
 
+  // TEMPORARY TEST BUTTON: places an automatic voice call to your 3 test
+  // numbers via OfflineFallbackService.sendAutoVoiceCallAlert (Exotel).
+  // Remove this button once the auto-alert is wired into the real SOS flow.
+  const handleTestVoiceCall = async () => {
+    setIsSendingTestCall(true);
+    try {
+      const { success, error } = await OfflineFallbackService.sendAutoVoiceCallAlert(
+        trustedContacts
+      );
+      if (success) {
+        Alert.alert('Calling!', 'Check your 3 test phones — they should be ringing.');
+      } else {
+        Alert.alert('Failed', error || 'One or more calls failed to place.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Something went wrong.');
+    } finally {
+      setIsSendingTestCall(false);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -206,6 +229,19 @@ export const TrustedContactsScreen: React.FC = () => {
         <Zap size={18} color="#FFFFFF" />
         <Text style={styles.testAlertBtnText}>
           {isSendingTestAlert ? 'Sending...' : 'Test Auto-Alert (Telegram)'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* TEMPORARY TEST BUTTON */}
+      <TouchableOpacity
+        style={[styles.testAlertBtn, styles.testCallBtn]}
+        activeOpacity={0.8}
+        onPress={handleTestVoiceCall}
+        disabled={isSendingTestCall}
+      >
+        <Phone size={18} color="#FFFFFF" />
+        <Text style={styles.testAlertBtnText}>
+          {isSendingTestCall ? 'Calling...' : 'Test Auto-Alert (Voice Call)'}
         </Text>
       </TouchableOpacity>
 
@@ -468,6 +504,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  testCallBtn: {
+    backgroundColor: '#DA3633',
   },
   sectionHeader: {
     flexDirection: 'row',
